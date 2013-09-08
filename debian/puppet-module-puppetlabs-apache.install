@@ -1,0 +1,7 @@
+Modulefile usr/share/puppet/modules.available/puppetlabs-apache
+metadata.json usr/share/puppet/modules.available/puppetlabs-apache
+files usr/share/puppet/modules.available/puppetlabs-apache
+templates usr/share/puppet/modules.available/puppetlabs-apache
+tests usr/share/puppet/modules.available/puppetlabs-apache
+manifests usr/share/puppet/modules.available/puppetlabs-apache
+lib usr/share/puppet/modules.available/puppetlabs-apache
