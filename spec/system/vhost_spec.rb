@@ -6,6 +6,10 @@ describe 'apache::vhost define' do
     vhost_dir = '/etc/httpd/conf.d'
     package_name = 'httpd'
     service_name = 'httpd'
+  when 'FreeBSD'
+    vhost_dir = '/usr/local/etc/apache22/Vhosts'
+    package_name = 'apache22'
+    service_name = 'apache22'
   when 'Debian'
     vhost_dir = '/etc/apache2/sites-enabled'
     package_name = 'apache2'
@@ -61,6 +65,28 @@ describe 'apache::vhost define' do
     describe file("#{vhost_dir}/25-first.example.com.conf") do
       it { should contain '<VirtualHost \*:80>' }
       it { should contain "ServerName first.example.com" }
+    end
+  end
+
+  context 'new proxy vhost on port 80' do
+    it 'should configure an apache proxy vhost' do
+      puppet_apply(%{
+        class { 'apache': }
+        apache::vhost { 'proxy.example.com':
+          port    => '80',
+          docroot => '/var/www/proxy',
+          proxy_pass => [
+            { 'path' => '/foo', 'url' => 'http://backend-foo/'},
+          ],
+        }
+      }) { |r| [0,2].should include r.exit_code}
+    end
+
+    describe file("#{vhost_dir}/25-proxy.example.com.conf") do
+      it { should contain '<VirtualHost \*:80>' }
+      it { should contain "ServerName proxy.example.com" }
+      it { should contain "ProxyPass" }
+      it { should_not contain "<Proxy \*>" }
     end
   end
 
@@ -141,6 +167,45 @@ describe 'apache::vhost define' do
 
   end
 
+  case node.facts['lsbdistcodename']
+  when 'precise', 'wheezy'
+    context 'vhost fallbackresouce example' do
+      it 'should configure a vhost with Fallbackresource' do
+        puppet_apply(%{
+        class { 'apache': }
+        apache::vhost { 'fallback.example.net':
+          docroot         => '/var/www/fallback',
+          fallbackresource => '/index.html'
+        }
+        file { '/var/www/fallback/index.html':
+          ensure  => file,
+          content => "Hello World\\n",
+        }
+        host { 'fallback.example.net': ip => '127.0.0.1', }
+                     }) { |r| [0,2].should include r.exit_code}
+      end
+
+      describe service(service_name) do
+        it { should be_enabled }
+        it { should be_running }
+      end
+
+      it 'should answer to fallback.example.net' do
+        shell("/usr/bin/curl fallback.example.net:80/Does/Not/Exist") do |r|
+          r.stdout.should == "Hello World\n"
+          r.exit_code.should == 0
+        end
+      end
+
+    end
+  else
+    # The current stable RHEL release (6.4) comes with Apache httpd 2.2.15
+    # That was released March 6, 2010.
+    # FallbackResource was backported to 2.2.16, and released July 25, 2010.
+    # Ubuntu Lucid (10.04) comes with apache2 2.2.14, released October 3, 2009.
+    # https://svn.apache.org/repos/asf/httpd/httpd/branches/2.2.x/STATUS
+  end
+
   context 'virtual_docroot hosting separate sites' do
     it 'should configure a vhost with VirtualDocumentRoot' do
       puppet_apply(%{
@@ -176,6 +241,47 @@ describe 'apache::vhost define' do
     it 'should answer to b.virt.example.com' do
       shell("/usr/bin/curl b.virt.example.com:80") do |r|
         r.stdout.should == "Hello from b.virt\n"
+        r.exit_code.should == 0
+      end
+    end
+  end
+
+  context 'proxy_pass for alternative vhost' do
+    it 'should configure a local vhost and a proxy vhost' do
+      puppet_apply(%{
+        class { 'apache': default_vhost => false, }
+        apache::vhost { 'localhost':
+          docroot => '/var/www/local',
+          ip      => '127.0.0.1',
+          port    => '8888',
+        }
+        apache::listen { '*:80': }
+        apache::vhost { 'proxy.example.com':
+          docroot    => '/var/www',
+          port       => '80',
+          add_listen => false,
+          proxy_pass => {
+            'path' => '/',
+            'url'  => 'http://localhost:8888/subdir/',
+          },
+        }
+        host { 'proxy.example.com': ip => '127.0.0.1', }
+        file { ['/var/www/local', '/var/www/local/subdir']: ensure => directory, }
+        file { '/var/www/local/subdir/index.html':
+          ensure  => file,
+          content => "Hello from localhost\\n",
+        }
+      }) { |r| [0,2].should include r.exit_code}
+    end
+
+    describe service(service_name) do
+      it { should be_enabled }
+      it { should be_running }
+    end
+
+    it 'should get a response from the back end' do
+      shell("/usr/bin/curl --max-redirs 0 proxy.example.com:80") do |r|
+        r.stdout.should == "Hello from localhost\n"
         r.exit_code.should == 0
       end
     end

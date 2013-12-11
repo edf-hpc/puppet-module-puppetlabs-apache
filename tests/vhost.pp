@@ -168,10 +168,18 @@ apache::vhost { 'eighteenth.example.com':
   docroot => '/var/www/eighteenth',
   setenv  => ['SPECIAL_PATH /foo/bin','KILROY was_here'],
 }
+
 apache::vhost { 'nineteenth.example.com':
   port     => '80',
   docroot  => '/var/www/nineteenth',
   setenvif => 'Host "^([^\.]*)\.website\.com$" CLIENT_NAME=$1',
+}
+
+# Vhost with additional include files
+apache::vhost { 'twentyieth.example.com':
+  port                => '80',
+  docroot             => '/var/www/twelfth',
+  additional_includes => ['/tmp/proxy_group_a','/tmp/proxy_group_b'],
 }
 
 # Vhost with alias for subdomain mapped to same named directory
@@ -182,4 +190,20 @@ apache::vhost { 'subdomain.loc':
   virtual_docroot => '/var/www/%-2+',
   docroot         => '/var/www',
   serveraliases   => ['*.loc',],
+}
+
+# Vhost with SSLProtocol,SSLCipherSuite, SSLHonorCipherOrder
+apache::vhost { 'securedomain.com':
+        priority              => '10',
+        vhost_name            => 'www.securedomain.com',
+        port                  => '443',
+        docroot               => '/var/www/secure',
+        ssl                   => true,
+        ssl_cert              => '/etc/ssl/securedomain.cert',
+        ssl_key               => '/etc/ssl/securedomain.key',
+        ssl_chain             => '/etc/ssl/securedomain.crt',
+        ssl_protocol          => '-ALL +SSLv3 +TLSv1',
+        ssl_cipher            => 'ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM',
+        ssl_honorcipherorder  => 'On',
+        add_listen            => 'false',
 }
