@@ -72,6 +72,12 @@ describe 'apache::mod::passenger', :type => :class do
       end
       it { should contain_file('passenger.conf').with_content(/^  PassengerRuby \/user\/lib\/example\/ruby$/) }
     end
+    describe "with passenger_use_global_queue => true" do
+      let :params do
+        { :passenger_use_global_queue => 'true' }
+      end
+      it { should contain_file('passenger.conf').with_content(/^  PassengerUseGlobalQueue true$/) }
+    end
 
   end
   context "on a RedHat OS" do
@@ -90,5 +96,17 @@ describe 'apache::mod::passenger', :type => :class do
     }) }
     it { should contain_file('passenger.conf').with_content(/^  PassengerRoot \/usr\/share\/rubygems\/gems\/passenger-3.0.17$/) }
     it { should contain_file('passenger.conf').with_content(/^  PassengerRuby \/usr\/bin\/ruby$/) }
+  end
+  context "on a FreeBSD OS" do
+    let :facts do
+      {
+        :osfamily               => 'FreeBSD',
+        :operatingsystemrelease => '9',
+        :concat_basedir         => '/dne',
+      }
+    end
+    it { should include_class("apache::params") }
+    it { should contain_apache__mod('passenger') }
+    it { should contain_package("www/rubygem-passenger") }
   end
 end
