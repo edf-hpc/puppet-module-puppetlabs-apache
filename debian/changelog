@@ -1,8 +1,8 @@
-puppet-module-puppetlabs-apache (0.10.0-1) UNRELEASED; urgency=medium
+puppet-module-puppetlabs-apache (0.10.0-1) unstable; urgency=medium
 
   * Imported upstream release 0.10.0
 
- -- Stig Sandbeck Mathisen <ssm@debian.org>  Wed, 11 Dec 2013 13:05:19 +0100
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Wed, 11 Dec 2013 14:08:56 +0100
 
 puppet-module-puppetlabs-apache (0.9.0-1) unstable; urgency=low
 
