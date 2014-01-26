@@ -1,3 +1,10 @@
+puppet-module-puppetlabs-apache (0.10.0-3) unstable; urgency=medium
+
+  * debian/control: Enable autopkgtest testsuite.
+  * debian/tests: Add testcase for Apache installation.
+
+ -- Thomas Bechtold <toabctl@debian.org>  Sun, 26 Jan 2014 10:21:59 +0100
+
 puppet-module-puppetlabs-apache (0.10.0-2) unstable; urgency=medium
 
   * debian/watch: use redirector from qa.debian.org.
