@@ -1,3 +1,9 @@
+puppet-module-puppetlabs-apache (1.0.1-1) unstable; urgency=medium
+
+  * New upstream release. 
+
+ -- Thomas Bechtold <toabctl@debian.org>  Fri, 07 Mar 2014 20:54:09 +0100
+
 puppet-module-puppetlabs-apache (0.10.0-3) unstable; urgency=medium
 
   * debian/control: Enable autopkgtest testsuite.
