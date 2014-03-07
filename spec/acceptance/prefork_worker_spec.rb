@@ -1,17 +1,15 @@
-require 'spec_helper_system'
+require 'spec_helper_acceptance'
 
-case node.facts['osfamily']
+case fact('osfamily')
 when 'RedHat'
   servicename = 'httpd'
 when 'Debian'
   servicename = 'apache2'
 when 'FreeBSD'
   servicename = 'apache22'
-else
-  raise "Unconfigured OS for apache service on #{node.facts['osfamily']}"
 end
 
-case node.facts['osfamily']
+case fact('osfamily')
 when 'FreeBSD'
   describe 'apache::mod::event class' do
     describe 'running puppet code' do
@@ -24,11 +22,8 @@ when 'FreeBSD'
         EOS
 
         # Run it twice and test for idempotency
-        puppet_apply(pp) do |r|
-          r.exit_code.should_not == 1
-          r.refresh
-          r.exit_code.should be_zero
-        end
+        apply_manifest(pp, :catch_failures => true)
+        expect(apply_manifest(pp, :catch_failures => true).exit_code).to be_zero
       end
     end
 
@@ -39,7 +34,7 @@ when 'FreeBSD'
   end
 end
 
-describe 'apache::mod::worker class' do
+describe 'apache::mod::worker class', :unless => UNSUPPORTED_PLATFORMS.include?(fact('osfamily')) do
   describe 'running puppet code' do
     # Using puppet_apply as a helper
     it 'should work with no errors' do
@@ -50,11 +45,8 @@ describe 'apache::mod::worker class' do
       EOS
 
       # Run it twice and test for idempotency
-      puppet_apply(pp) do |r|
-        r.exit_code.should_not == 1
-        r.refresh
-        r.exit_code.should be_zero
-      end
+      apply_manifest(pp, :catch_failures => true)
+      expect(apply_manifest(pp, :catch_failures => true).exit_code).to be_zero
     end
   end
 
@@ -64,7 +56,7 @@ describe 'apache::mod::worker class' do
   end
 end
 
-describe 'apache::mod::prefork class' do
+describe 'apache::mod::prefork class', :unless => UNSUPPORTED_PLATFORMS.include?(fact('osfamily')) do
   describe 'running puppet code' do
     # Using puppet_apply as a helper
     it 'should work with no errors' do
@@ -75,11 +67,8 @@ describe 'apache::mod::prefork class' do
       EOS
 
       # Run it twice and test for idempotency
-      puppet_apply(pp) do |r|
-        r.exit_code.should_not == 1
-        r.refresh
-        r.exit_code.should be_zero
-      end
+      apply_manifest(pp, :catch_failures => true)
+      expect(apply_manifest(pp, :catch_failures => true).exit_code).to be_zero
     end
   end
 
