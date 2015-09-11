@@ -1,5 +1,6 @@
-puppet-module-puppetlabs-apache (1.6.0-1) UNRELEASED; urgency=medium
+puppet-module-puppetlabs-apache (1.6.0-1) unstable; urgency=medium
 
+  * Team upload.
   * Imported upstream release 1.6.0
     (Closes: #788124, #788125, #788127)
 
