@@ -25,6 +25,10 @@ define apache::vhost(
   $ssl_honorcipherorder        = undef,
   $ssl_verify_client           = undef,
   $ssl_verify_depth            = undef,
+  $ssl_proxy_verify            = undef,
+  $ssl_proxy_check_peer_cn     = undef,
+  $ssl_proxy_check_peer_name   = undef,
+  $ssl_proxy_machine_cert      = undef,
   $ssl_options                 = undef,
   $ssl_openssl_conf_cmd        = undef,
   $ssl_proxyengine             = false,
@@ -80,6 +84,7 @@ define apache::vhost(
   $redirectmatch_regexp        = undef,
   $redirectmatch_dest          = undef,
   $rack_base_uris              = undef,
+  $passenger_base_uris         = undef,
   $headers                     = undef,
   $request_headers             = undef,
   $filters                     = undef,
@@ -107,6 +112,7 @@ define apache::vhost(
   $fastcgi_socket              = undef,
   $fastcgi_dir                 = undef,
   $additional_includes         = [],
+  $use_optional_includes       = $::apache::use_optional_includes,
   $apache_version              = $::apache::apache_version,
   $allow_encoded_slashes       = undef,
   $suexec_user_group           = undef,
@@ -121,6 +127,16 @@ define apache::vhost(
   $modsec_disable_ids          = undef,
   $modsec_disable_ips          = undef,
   $modsec_body_limit           = undef,
+  $auth_kerb                   = false,
+  $krb_method_negotiate        = 'on',
+  $krb_method_k5passwd         = 'on',
+  $krb_authoritative           = 'on',
+  $krb_auth_realms             = [],
+  $krb_5keytab                 = undef,
+  $krb_local_user_mapping      = undef,
+  $krb_verify_kdc              = 'on',
+  $krb_servicename             = 'HTTP',
+  $krb_save_credentials        = 'off',
 ) {
   # The base class must be included first because it is used by parameter defaults
   if ! defined(Class['apache']) {
@@ -143,13 +159,15 @@ define apache::vhost(
   validate_bool($ssl_proxyengine)
   if $rewrites {
     validate_array($rewrites)
-    validate_hash($rewrites[0])
+    unless empty($rewrites) {
+      validate_hash($rewrites[0])
+    }
   }
 
   # Input validation begins
 
   if $suexec_user_group {
-    validate_re($suexec_user_group, '^\w+ \w+$',
+    validate_re($suexec_user_group, '^[\w-]+ [\w-]+$',
     "${suexec_user_group} is not supported for suexec_user_group.  Must be 'user group'.")
   }
 
@@ -211,12 +229,35 @@ define apache::vhost(
     validate_re($allow_encoded_slashes, '(^on$|^off$|^nodecode$)', "${allow_encoded_slashes} is not permitted for allow_encoded_slashes. Allowed values are 'on', 'off' or 'nodecode'.")
   }
 
+  validate_bool($auth_kerb)
+
+  # Validate the docroot as a string if:
+  # - $manage_docroot is true
+  if $manage_docroot {
+    validate_string($docroot)
+  }
+
+  if $ssl_proxy_verify {
+    validate_re($ssl_proxy_verify,'^(none|optional|require|optional_no_ca)$',"${ssl_proxy_verify} is not permitted for ssl_proxy_verify. Allowed values are 'none', 'optional', 'require' or 'optional_no_ca'.")
+  }
+
+  if $ssl_proxy_check_peer_cn {
+    validate_re($ssl_proxy_check_peer_cn,'(^on$|^off$)',"${ssl_proxy_check_peer_cn} is not permitted for ssl_proxy_check_peer_cn. Allowed values are 'on' or 'off'.")
+  }
+  if $ssl_proxy_check_peer_name {
+    validate_re($ssl_proxy_check_peer_name,'(^on$|^off$)',"${ssl_proxy_check_peer_name} is not permitted for ssl_proxy_check_peer_name. Allowed values are 'on' or 'off'.")
+  }
+
   # Input validation ends
 
   if $ssl and $ensure == 'present' {
     include ::apache::mod::ssl
     # Required for the AddType lines.
     include ::apache::mod::mime
+  }
+
+  if $auth_kerb and $ensure == 'present' {
+    include ::apache::mod::auth_kerb
   }
 
   if $virtual_docroot {
@@ -251,7 +292,7 @@ define apache::vhost(
 
   # This ensures that the docroot exists
   # But enables it to be specified across multiple vhost resources
-  if ! defined(File[$docroot]) and $manage_docroot {
+  if $manage_docroot and $docroot and ! defined(File[$docroot]) {
     file { $docroot:
       ensure  => directory,
       owner   => $docroot_owner,
@@ -318,12 +359,13 @@ define apache::vhost(
   }
 
   if $ip {
+    $_ip = enclose_ipv6($ip)
     if $port {
-      $listen_addr_port = "${ip}:${port}"
-      $nvh_addr_port = "${ip}:${port}"
+      $listen_addr_port = suffix(any2array($_ip),":${port}")
+      $nvh_addr_port = suffix(any2array($_ip),":${port}")
     } else {
       $listen_addr_port = undef
-      $nvh_addr_port = $ip
+      $nvh_addr_port = $_ip
       if ! $servername and ! $ip_based {
         fail("Apache::Vhost[${name}]: must pass 'ip' and/or 'port' parameters for name-based vhosts")
       }
@@ -344,13 +386,13 @@ define apache::vhost(
     if $ip and defined(Apache::Listen["${port}"]) {
       fail("Apache::Vhost[${name}]: Mixing IP and non-IP Listen directives is not possible; check the add_listen parameter of the apache::vhost define to disable this")
     }
-    if ! defined(Apache::Listen["${listen_addr_port}"]) and $listen_addr_port and $ensure == 'present' {
-      ::apache::listen { "${listen_addr_port}": }
+    if $listen_addr_port and $ensure == 'present' {
+      ensure_resource('apache::listen', $listen_addr_port)
     }
   }
   if ! $ip_based {
-    if ! defined(Apache::Namevirtualhost[$nvh_addr_port]) and $ensure == 'present' and (versioncmp($apache_version, '2.4') < 0) {
-      ::apache::namevirtualhost { $nvh_addr_port: }
+    if $ensure == 'present' and (versioncmp($apache_version, '2.4') < 0) {
+      ensure_resource('apache::namevirtualhost', $nvh_addr_port)
     }
   }
 
@@ -362,7 +404,7 @@ define apache::vhost(
   }
 
   # Load mod_alias if needed and not yet loaded
-  if ($scriptalias or $scriptaliases != []) or ($redirect_source and $redirect_dest) {
+  if ($scriptalias or $scriptaliases != []) or ($aliases and $aliases != []) or ($redirect_source and $redirect_dest) {
     if ! defined(Class['apache::mod::alias'])  and ($ensure == 'present') {
       include ::apache::mod::alias
     }
@@ -383,6 +425,11 @@ define apache::vhost(
     if ! defined(Class['apache::mod::passenger']) {
       include ::apache::mod::passenger
     }
+  }
+
+  # Load mod_passenger if needed and not yet loaded
+  if $passenger_base_uris {
+      include ::apache::mod::passenger
   }
 
   # Load mod_fastci if needed and not yet loaded
@@ -418,7 +465,7 @@ define apache::vhost(
       fail("Apache::Vhost[${name}]: 'directories' must be either a Hash or an Array of Hashes")
     }
     $_directories = $directories
-  } else {
+  } elsif $docroot {
     $_directory = {
       provider       => 'directory',
       path           => $docroot,
@@ -457,11 +504,13 @@ define apache::vhost(
     path    => "${::apache::vhost_dir}/${priority_real}${filename}.conf",
     owner   => 'root',
     group   => $::apache::params::root_group,
-    mode    => '0644',
+    mode    => $::apache::file_mode,
     order   => 'numeric',
     require => Package['httpd'],
     notify  => Class['apache::service'],
   }
+  # NOTE(pabelanger): This code is duplicated in ::apache::vhost::custom and
+  # needs to be converted into something generic.
   if $::apache::vhost_enable_dir {
     $vhost_enable_dir = $::apache::vhost_enable_dir
     $vhost_symlink_ensure = $ensure ? {
@@ -474,7 +523,7 @@ define apache::vhost(
       target  => "${::apache::vhost_dir}/${priority_real}${filename}.conf",
       owner   => 'root',
       group   => $::apache::params::root_group,
-      mode    => '0644',
+      mode    => $::apache::file_mode,
       require => Concat["${priority_real}${filename}.conf"],
       notify  => Class['apache::service'],
     }
@@ -493,10 +542,12 @@ define apache::vhost(
   # Template uses:
   # - $virtual_docroot
   # - $docroot
-  concat::fragment { "${name}-docroot":
-    target  => "${priority_real}${filename}.conf",
-    order   => 10,
-    content => template('apache/vhost/_docroot.erb'),
+  if $docroot {
+    concat::fragment { "${name}-docroot":
+      target  => "${priority_real}${filename}.conf",
+      order   => 10,
+      content => template('apache/vhost/_docroot.erb'),
+    }
   }
 
   # Template uses:
@@ -631,6 +682,26 @@ define apache::vhost(
   }
 
   # Template uses:
+  # - $headers
+  if $headers and ! empty($headers) {
+    concat::fragment { "${name}-header":
+      target  => "${priority_real}${filename}.conf",
+      order   => 140,
+      content => template('apache/vhost/_header.erb'),
+    }
+  }
+
+  # Template uses:
+  # - $request_headers
+  if $request_headers and ! empty($request_headers) {
+    concat::fragment { "${name}-requestheader":
+      target  => "${priority_real}${filename}.conf",
+      order   => 150,
+      content => template('apache/vhost/_requestheader.erb'),
+    }
+  }
+
+  # Template uses:
   # - $proxy_dest
   # - $proxy_pass
   # - $proxy_pass_match
@@ -639,7 +710,7 @@ define apache::vhost(
   if $proxy_dest or $proxy_pass or $proxy_pass_match or $proxy_dest_match {
     concat::fragment { "${name}-proxy":
       target  => "${priority_real}${filename}.conf",
-      order   => 140,
+      order   => 160,
       content => template('apache/vhost/_proxy.erb'),
     }
   }
@@ -649,8 +720,18 @@ define apache::vhost(
   if $rack_base_uris {
     concat::fragment { "${name}-rack":
       target  => "${priority_real}${filename}.conf",
-      order   => 150,
+      order   => 170,
       content => template('apache/vhost/_rack.erb'),
+    }
+  }
+
+  # Template uses:
+  # - $passenger_base_uris
+  if $passenger_base_uris {
+    concat::fragment { "${name}-passenger_uris":
+      target  => "${priority_real}${filename}.conf",
+      order   => 175,
+      content => template('apache/vhost/_passenger_base_uris.erb'),
     }
   }
 
@@ -670,7 +751,7 @@ define apache::vhost(
   if ($redirect_source and $redirect_dest) or ($redirectmatch_status and $redirectmatch_regexp and $redirectmatch_dest) {
     concat::fragment { "${name}-redirect":
       target  => "${priority_real}${filename}.conf",
-      order   => 160,
+      order   => 180,
       content => template('apache/vhost/_redirect.erb'),
     }
   }
@@ -684,7 +765,7 @@ define apache::vhost(
   if $rewrites or $rewrite_rule {
     concat::fragment { "${name}-rewrite":
       target  => "${priority_real}${filename}.conf",
-      order   => 170,
+      order   => 190,
       content => template('apache/vhost/_rewrite.erb'),
     }
   }
@@ -695,7 +776,7 @@ define apache::vhost(
   if ( $scriptalias or $scriptaliases != [] ) {
     concat::fragment { "${name}-scriptalias":
       target  => "${priority_real}${filename}.conf",
-      order   => 180,
+      order   => 200,
       content => template('apache/vhost/_scriptalias.erb'),
     }
   }
@@ -705,7 +786,7 @@ define apache::vhost(
   if $serveraliases and ! empty($serveraliases) {
     concat::fragment { "${name}-serveralias":
       target  => "${priority_real}${filename}.conf",
-      order   => 190,
+      order   => 210,
       content => template('apache/vhost/_serveralias.erb'),
     }
   }
@@ -716,7 +797,7 @@ define apache::vhost(
   if ($setenv and ! empty($setenv)) or ($setenvif and ! empty($setenvif)) {
     concat::fragment { "${name}-setenv":
       target  => "${priority_real}${filename}.conf",
-      order   => 200,
+      order   => 220,
       content => template('apache/vhost/_setenv.erb'),
     }
   }
@@ -731,7 +812,6 @@ define apache::vhost(
   # - $ssl_crl_path
   # - $ssl_crl
   # - $ssl_crl_check
-  # - $ssl_proxyengine
   # - $ssl_protocol
   # - $ssl_cipher
   # - $ssl_honorcipherorder
@@ -743,8 +823,38 @@ define apache::vhost(
   if $ssl {
     concat::fragment { "${name}-ssl":
       target  => "${priority_real}${filename}.conf",
-      order   => 210,
+      order   => 230,
       content => template('apache/vhost/_ssl.erb'),
+    }
+  }
+
+  # Template uses:
+  # - $ssl_proxyengine
+  # - $ssl_proxy_verify
+  # - $ssl_proxy_check_peer_cn
+  # - $ssl_proxy_check_peer_name
+  # - $ssl_proxy_machine_cert
+  if $ssl_proxyengine {
+    concat::fragment { "${name}-sslproxy":
+      target  => "${priority_real}${filename}.conf",
+      order   => 230,
+      content => template('apache/vhost/_sslproxy.erb'),
+    }
+  }
+
+  # Template uses:
+  # - $auth_kerb
+  # - $krb_method_negotiate
+  # - $krb_method_k5passwd
+  # - $krb_authoritative
+  # - $krb_auth_realms
+  # - $krb_5keytab
+  # - $krb_local_user_mapping
+  if $auth_kerb {
+    concat::fragment { "${name}-auth_kerb":
+      target  => "${priority_real}${filename}.conf",
+      order   => 230,
+      content => template('apache/vhost/_auth_kerb.erb'),
     }
   }
 
@@ -755,7 +865,7 @@ define apache::vhost(
   if $suphp_engine == 'on' {
     concat::fragment { "${name}-suphp":
       target  => "${priority_real}${filename}.conf",
-      order   => 220,
+      order   => 240,
       content => template('apache/vhost/_suphp.erb'),
     }
   }
@@ -766,7 +876,7 @@ define apache::vhost(
   if ($php_values and ! empty($php_values)) or ($php_flags and ! empty($php_flags)) {
     concat::fragment { "${name}-php":
       target  => "${priority_real}${filename}.conf",
-      order   => 220,
+      order   => 240,
       content => template('apache/vhost/_php.erb'),
     }
   }
@@ -777,28 +887,8 @@ define apache::vhost(
   if ($php_admin_values and ! empty($php_admin_values)) or ($php_admin_flags and ! empty($php_admin_flags)) {
     concat::fragment { "${name}-php_admin":
       target  => "${priority_real}${filename}.conf",
-      order   => 230,
-      content => template('apache/vhost/_php_admin.erb'),
-    }
-  }
-
-  # Template uses:
-  # - $headers
-  if $headers and ! empty($headers) {
-    concat::fragment { "${name}-header":
-      target  => "${priority_real}${filename}.conf",
-      order   => 240,
-      content => template('apache/vhost/_header.erb'),
-    }
-  }
-
-  # Template uses:
-  # - $request_headers
-  if $request_headers and ! empty($request_headers) {
-    concat::fragment { "${name}-requestheader":
-      target  => "${priority_real}${filename}.conf",
       order   => 250,
-      content => template('apache/vhost/_requestheader.erb'),
+      content => template('apache/vhost/_php_admin.erb'),
     }
   }
 
