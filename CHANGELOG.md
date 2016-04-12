@@ -1,3 +1,106 @@
+## Supported Release 1.8.1
+### Summary
+This release includes bug fixes and a documentation update.
+
+#### Bugfixes
+- Fixes a bug that occurs when using the module in combination with puppetlabs-concat 2.x.
+- Fixes a bug where passenger.conf was vulnerable to purging.
+- Removes the pin of the concat module dependency.
+
+## 2016-01-26 - Supported Release 1.8.0
+### Summary
+This release includes a lot of bug fixes and feature updates, including support for Debian 8, as well as many test improvements.
+
+#### Features
+- Debian 8 Support.
+- Added the 'file_mode' property to allow a custom permission setting for config files.
+- Enable 'PassengerMaxRequestQueueSize' to be set for mod_passenger.
+- MODULES-2956: Enable options within location block on proxy_match.
+- Support itk on redhat.
+- Support the mod_ssl SSLProxyVerify directive.
+- Support ProxPassReverseCookieDomain directive (mod_proxy).
+- Support proxy provider for vhost directories.
+- Added new 'apache::vhost::custom' resource.
+
+#### Bugfixes
+- Fixed ProxyPassReverse configuration.
+- Fixed error in Amazon operatingsystem detection.
+- Fixed mod_security catalog ordering issues for RedHat 7.
+- Fixed paths and packages for the shib2 apache module on Debian pre Jessie.
+- Fixed EL7 directory path for apache modules.
+- Fixed validation error when empty array is passed for the rewrites parameter.
+- Idempotency fixes with regards to '::apache::mod_enable_dir'.
+- ITK fixes.
+- (MODULES-2865) fix $mpm_module logic for 'false'.
+- Set SSLProxy directives even if ssl is false, due to issue with RewriteRules and ProxyPass directives.
+- Enable setting LimitRequestFieldSize globally, and remove it from vhost.
+
+#### Improvements
+- apache::mod::php now uses FilesMatch to configure the php handler. This is following the recommended upstream configuration guidelines (http://php.net/manual/en/install.unix.apache2.php#example-20) and distribution's default config (e.g.: http://bazaar.launchpad.net/~ubuntu-branches/ubuntu/vivid/php5/vivid/view/head:/debian/php5.conf). It avoids inadvertently exposing the PHP handler to executing uploads with names like 'file.php.jpg', but might impact setups with unusual requirements.
+- Improved compatibility for Gentoo.
+- Vhosts can now be supplied with a wildcard listen value.
+- Numerous test improvements.
+- Removed workarounds for https://bz.apache.org/bugzilla/show_bug.cgi?id=38864 as the issues have been fixed in Apache.
+- Documentation updates.
+- Ensureed order of ProxyPass and ProxyPassMatch parameters.
+- Ensure that ProxyPreserveHost is set to off mode explicitly if not set in manifest.
+- Put headers and request headers before proxy with regards to template generation.
+- Added X-Forwarded-For into log_formats defaults.
+- (MODULES-2703) Allow mod pagespeed to take an array of lines as additional_configuration.
+
+## Supported Release 1.7.1
+###Summary
+
+Small release for support of newer PE versions. This increments the version of PE in the metadata.json file.
+
+## 2015-11-17 - Supported Release 1.7.0
+### Summary
+This release includes many new features and bugfixes. There are test, documentation and misc improvements.
+
+#### Features
+- allow groups with - like vhost-users 
+- ability to enable/disable the secruleengine through a parameter
+- add mod_auth_kerb parameters to vhost
+- client auth for reverse proxy
+- support for mod_auth_mellon
+- change SSLProtocol in apache::vhost to be space separated
+- RewriteLock support
+
+#### Bugfixes
+- fix apache::mod::cgid so it can be used with the event MPM 
+- load unixd before fcgid on all operating systems
+- fixes conditional in vhost aliases
+- corrects mod_cgid worker/event defaults
+- ProxyPassMatch parameters were ending up on a newline
+- catch that mod_authz_default has been removed in Apache 2.4
+- mod::ssl fails on SLES
+- fix typo of MPM_PREFORK for FreeBSD package install 
+- install all modules before adding custom configs
+- fix acceptance testing for SSLProtocol behaviour for real
+- fix ordering issue with conf_file and ports_file 
+
+#### Known Issues
+- mod_passenger is having issues installing on Redhat/Centos 6, This is due to package dependency issues.
+
+#### Improvements
+- added docs for forcetype directive
+- removes ruby 1.8.7 from the travisci test matrix
+- readme reorganisation, minor fixups
+- support the mod_proxy ProxyPassReverseCookiePath directive
+- the purge_vhost_configs parameter is actually called purge_vhost_dir
+- add ListenBacklog for mod worker
+- deflate application/json by default 
+- install mod_authn_alias as default mod in debian for apache < 2.4
+- optionally set LimitRequestFieldSize on an apache::vhost
+- add SecUploadDir parameter to support file uploads with mod_security
+- optionally set parameters for mod_ext_filter module
+- allow SetOutputFilter to be set on a directory
+- RC4 is deprecated
+- allow empty docroot
+- add option to configure the include pattern for the vhost_enable dir
+- allow multiple IP addresses per vhost
+- default document root update for Ubuntu 14.04 and Debian 8 
+
 ## 2015-07-28 - Supported Release 1.6.0
 ### Summary
 This release includes a couple of new features, along with test and documentation updates, and support for the latest AIO puppet builds.
