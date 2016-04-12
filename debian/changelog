@@ -1,8 +1,12 @@
-puppet-module-puppetlabs-apache (1.8.1-1) UNRELEASED; urgency=medium
+puppet-module-puppetlabs-apache (1.8.1-1) unstable; urgency=medium
 
+  * Team upload.
   * Imported upstream release 1.8.1
+  * Update VCS URL
+  * Declare compliance with Debian Policy 3.9.7
+  * Update upstream URL
 
- -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 12 Apr 2016 22:48:22 +0200
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 12 Apr 2016 23:24:04 +0200
 
 puppet-module-puppetlabs-apache (1.6.0-1) unstable; urgency=medium
 
