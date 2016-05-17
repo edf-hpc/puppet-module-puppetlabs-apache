@@ -58,8 +58,21 @@
     <%- end -%>
     <%- if scope.function_versioncmp([@apache_version, '2.4']) >= 0 -%>
       <%- if directory['require'] && directory['require'] != '' && directory['require'] !~ /unmanaged/i -%>
-        <%- Array(directory['require']).each do |req| -%>
+        <%- if directory['require'].is_a?(Hash) -%>
+          <%- case directory['require']['enforce'].downcase -%>
+          <%- when 'all','none','any' then -%>
+    <Require<%= directory['require']['enforce'].capitalize %>>
+            <%- Array(directory['require']['requires']).each do |req| -%>
+      Require <%= req.strip %>
+            <%- end -%>
+    </Require<%= directory['require']['enforce'].capitalize %>>
+          <%- else -%>
+            <%- scope.function_warning(["Apache::Vhost: Require can only overwritten with all, none or any."]) -%>
+          <%- end -%>
+        <%- else -%>
+          <%- Array(directory['require']).each do |req| -%>
     Require <%= req %>
+          <%- end -%>
         <%- end -%>
       <%- end -%>
       <%- if directory['auth_require'] -%>
@@ -142,6 +155,11 @@
     <%- if directory['directoryindex'] and directory['directoryindex'] != '' -%>
     DirectoryIndex <%= directory['directoryindex'] %>
     <%- end -%>
+    <%- if directory['additional_includes'] and ! directory['additional_includes'].empty? -%>
+      <%- directory['additional_includes'].each do |include| -%>
+    Include '<%= "#{include}" %>'
+      <%- end -%>
+    <%- end -%>
     <%- if directory['error_documents'] and ! directory['error_documents'].empty? -%>
       <%- [directory['error_documents']].flatten.compact.each do |error_document| -%>
     ErrorDocument <%= error_document['error_code'] %> <%= error_document['document'] %>
@@ -185,6 +203,9 @@
     <%- end -%>
     <%- if directory['auth_group_file'] -%>
     AuthGroupFile <%= directory['auth_group_file'] %>
+    <%- end -%>
+    <%- if directory['auth_merging'] -%>
+    AuthMerging <%= directory['auth_merging'] %>
     <%- end -%>
     <%- if directory['fallbackresource'] -%>
     FallbackResource <%= directory['fallbackresource'] %>
@@ -270,6 +291,9 @@
       <%- end -%>
       <%- if directory['mellon_sp_cert_file'] -%>
     MellonSPCertFile "<%= directory['mellon_sp_cert_file'] %>"
+      <%- end -%>
+      <%- if directory['mellon_sp_metadata_file'] -%>
+    MellonSPMetadataFile "<%= directory['mellon_sp_metadata_file'] %>"
       <%- end -%>
       <%- if directory['mellon_idp_metadata_file'] -%>
     MellonIDPMetadataFile "<%= directory['mellon_idp_metadata_file'] %>"
