@@ -1,8 +1,10 @@
-puppet-module-puppetlabs-apache (1.9.0-1) UNRELEASED; urgency=medium
+puppet-module-puppetlabs-apache (1.9.0-1) unstable; urgency=medium
 
+  * Team upload.
   * Imported upstream relase 1.9.0
+  * Declare compliance with Debian policy 3.9.8
 
- -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 17 May 2016 11:22:10 +0200
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 17 May 2016 11:24:44 +0200
 
 puppet-module-puppetlabs-apache (1.8.1-1) unstable; urgency=medium
 
