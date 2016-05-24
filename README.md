@@ -47,6 +47,7 @@
 [`apache::mod::auth_cas`]: #class-apachemodauth_cas
 [`apache::mod::auth_mellon`]: #class-apachemodauth_mellon
 [`apache::mod::authnz_ldap`]: #class-apachemodauthnz_ldap
+[`apache::mod::cluster`]: #class-apachemodcluster
 [`apache::mod::disk_cache`]: #class-apachemoddisk_cache
 [`apache::mod::event`]: #class-apachemodevent
 [`apache::mod::ext_filter`]: #class-apachemodext_filter
@@ -1273,6 +1274,7 @@ The following Apache modules have supported classes, many of which allow for par
 * `cache`
 * `cgi`
 * `cgid`
+* `cluster` (see [`apache::mod::cluster`][])
 * `dav`
 * `dav_fs`
 * `dav_svn`\*
@@ -1366,7 +1368,7 @@ Installs and manages [`mod_mpm_event`][]. You can't include both `apache::mod::e
 **Parameters within `apache::mod::event`**:
 
 - `listenbacklog`: Sets the maximum length of the pending connections queue via the module's [`ListenBackLog`][] directive. Default: '511'.
-- `maxclients` (_Apache 2.3.12 or older_: `maxrequestworkers`): Sets the maximum number of connections Apache can simultaneously process, via the module's [`MaxRequestWorkers`][] directive. Default: '150'.
+- `maxrequestworkers` (_Apache 2.3.12 or older_: `maxclients`): Sets the maximum number of connections Apache can simultaneously process, via the module's [`MaxRequestWorkers`][] directive. Default: '150'.
 - `maxconnectionsperchild` (_Apache 2.3.8 or older_: `maxrequestsperchild`): Limits the number of connections a child server handles during its life, via the module's [`MaxConnectionsPerChild`][] directive. Default: '0'.
 - `maxsparethreads` and `minsparethreads`: Sets the maximum and minimum number of idle threads, via the [`MaxSpareThreads`][] and [`MinSpareThreads`][] directives. Default: '75' and '25', respectively.
 - `serverlimit`: Limits the configurable number of processes via the [`ServerLimit`][] directive. Default: '25'.
@@ -1427,6 +1429,31 @@ Installs `mod_authnz_ldap` and uses the `authnz_ldap.conf.erb` template to gener
 
 - `package_name`: Default: `undef`.
 - `verify_server_cert`: Default: `undef`.
+
+##### Class: `apache::mod::cluster`
+
+**Note**: There is no official package available for mod\_cluster and thus it must be made available by means outside of the control of the apache module. Binaries can be found at http://mod-cluster.jboss.org/
+
+``` puppet
+class { '::apache::mod::cluster':
+  ip                      => '172.17.0.1',
+  allowed_network         => '172.17.0.',
+  balancer_name           => 'mycluster',
+  version                 => '1.3.1'
+}
+```
+
+**Parameters within `apache::mod::cluster`**:
+
+- `port`: mod_cluster listen port. Default: '6666'.
+- `server_advertise`: Whether the server should advertise. Default: true.
+- `manager_allowed_network`: Network allowed to access the mod_cluster_manager. Default: '127.0.0.1'.
+- `keep_alive_timeout`: Keep-alive timeout. Default: 60.
+- `max_keep_alive_requests`: Max number of requests kept alive. Default: 0
+- `enable_mcpm_receive`: Whether MCPM should be enabled: Default: true.
+- `ip`: Listen ip address..
+- `allowed_network`: Balanced members network.
+- `version`: mod_cluster version. >= 1.3.0 is required for httpd 2.4.
 
 ##### Class: `apache::mod::deflate`
 
@@ -1578,6 +1605,8 @@ Installs and configures [`mod_negotiation`][].
 Installs and manages [`mod_pagespeed`][], a Google module that rewrites web pages to reduce latency and bandwidth.
 
 While this Apache module requires the `mod-pagespeed-stable` package, Puppet **doesn't** manage the software repositories required to automatically install the package. If you declare this class when the package is either not installed or not available to your package manager, your Puppet run will fail.
+
+**Note:** Verify that your system is compatible with the latest Google Pagespeed requirements.
 
 **Parameters within `apache::mod::pagespeed`**:
 
@@ -2206,6 +2235,24 @@ apache::vhost { 'sample.example.net':
 }
 ```
 
+##### `keepalive`
+
+Determines whether to enable persistent HTTP connections with the [`KeepAlive`][] directive for the virtual host. Valid options: 'Off', 'On' and `undef`. Default: `undef`, meaning the global, server-wide [`KeepAlive`][] setting is in effect.
+
+Use the `keepalive_timeout` and `max_keepalive_requests` parameters to set relevant options for the virtual host.
+
+##### `keepalive_timeout`
+
+Sets the [`KeepAliveTimeout`] directive for the virtual host, which determines the amount of time to wait for subsequent requests on a persistent HTTP connection. Default: `undef`, meaning the global, server-wide [`KeepAlive`][] setting is in effect.
+
+This parameter is only relevant if either the global, server-wide [`keepalive` parameter][] or the per-vhost `keepalive` parameter is enabled.
+
+##### `max_keepalive_requests`
+
+Limits the number of requests allowed per connection to the virtual host. Default: `undef`, meaning the global, server-wide [`KeepAlive`][] setting is in effect.
+
+This parameter is only relevant if either the global, server-wide [`keepalive` parameter][] or the per-vhost `keepalive` parameter is enabled.
+
 ##### `auth_kerb`
 
 Enable [`mod_auth_kerb`][] parameters for a virtual host. Valid options: Boolean. Default: false.
@@ -2346,6 +2393,12 @@ Sets the [ProxyPreserveHost Directive](https://httpd.apache.org/docs/current/mod
 
 Setting this parameter to true enables the `Host:` line from an incoming request to be proxied to the host instead of hostname. Setting it to false sets this directive to 'Off'.
 
+##### `proxy_add_headers`
+
+Sets the [ProxyAddHeaders Directive](https://httpd.apache.org/docs/current/mod/mod_proxy.html#proxyaddheaders). Valid Options: Boolean. Default: false.
+
+This parameter controlls whether proxy-related HTTP headers (X-Forwarded-For, X-Forwarded-Host and X-Forwarded-Server) get sent to the backend server.
+
 ##### `proxy_error_override`
 
 Sets the [ProxyErrorOverride Directive](https://httpd.apache.org/docs/current/mod/mod_proxy.html#proxyerroroverride). This directive controls whether Apache should override error pages for proxied content. Default: false.
@@ -2435,7 +2488,7 @@ Specifies the destination address of a [ProxyPass](https://httpd.apache.org/docs
 
 ##### `proxy_pass`
 
-Specifies an array of `path => URI` values for a [ProxyPass](https://httpd.apache.org/docs/current/mod/mod_proxy.html#proxypass) configuration. Default: undef. Parameters and location options can optionally be added as an array.
+Specifies an array of `path => URI` values for a [ProxyPass](https://httpd.apache.org/docs/current/mod/mod_proxy.html#proxypass) configuration. Defaults to 'undef'. Optionally parameters can be added as an array.
 
 ``` puppet
 apache::vhost { 'site.name.fdqn':
@@ -2444,8 +2497,6 @@ apache::vhost { 'site.name.fdqn':
     { 'path' => '/a', 'url' => 'http://backend-a/' },
     { 'path' => '/b', 'url' => 'http://backend-b/' },
     { 'path' => '/c', 'url' => 'http://backend-a/c', 'params' => {'max'=>20, 'ttl'=>120, 'retry'=>300}},
-    { 'path' => '/c', 'url' => 'http://backend-a/c',
-      'options' => {'Require'=>'valid-user', 'AuthType'=>'Kerberos', 'AuthName'=>'Kerberos Login'}},
     { 'path' => '/l', 'url' => 'http://backend-xy',
       'reverse_urls' => ['http://backend-x', 'http://backend-y'] },
     { 'path' => '/d', 'url' => 'http://backend-a/d',
@@ -2916,6 +2967,18 @@ ProxyStatus On',
 }
 ```
 
+###### `dav`
+
+Sets the value for [Dav](http://httpd.apache.org/docs/current/mod/mod_dav.html#dav), which determines if the WebDAV HTTP methods should be enabled. The value can be either `On`, `Off` or the name of the provider. A value of `On` enables the default filesystem provider implemented by the `mod_dav_fs` module.
+
+###### `dav_depth_infinity`
+
+Sets the value for [DavDepthInfinity](http://httpd.apache.org/docs/current/mod/mod_dav.html#davdepthinfinity), which is used to enable the processing of `PROPFIND` requests having a `Depth: Infinity` header.
+
+###### `dav_min_timeout`
+
+Sets the value for [DavMinTimeout](http://httpd.apache.org/docs/current/mod/mod_dav.html#davmintimeout), which sets the time the server holds a lock on a DAV resource. The value should be the number of seconds to set.
+
 ###### `deny`
 
 Sets a [Deny](https://httpd.apache.org/docs/2.2/mod/mod_authz_host.html#deny) directive, specifying which hosts are denied access to the server. **Deprecated:** This parameter is being deprecated due to a change in Apache. It only works with Apache 2.2 and lower. You can use it as a single string for one rule or as an array for more than one.
@@ -3045,6 +3108,26 @@ apache::vhost { 'sample.example.net':
 }
 ```
 
+###### `limit`
+
+Creates a [Limit](https://httpd.apache.org/docs/current/mod/core.html#limit) block inside the Directory block, which can also contain `require` directives.
+
+``` puppet
+apache::vhost { 'sample.example.net':
+  docroot     => '/path/to/docroot',
+  directories => [
+    { path     => '/',
+      provider => 'location',
+      limit    => [
+        { methods => 'GET HEAD'
+          require => ['valid-user']
+        },
+      ],
+    },
+  ],
+}
+```
+
 ###### `mellon_enable`
 
 Sets the [MellonEnable][`mod_auth_mellon`] directory to enable [`mod_auth_mellon`][]. You can use [`apache::mod::auth_mellon`][] to install `mod_auth_mellon`.
@@ -3166,7 +3249,7 @@ apache::vhost { 'sample.example.net':
   docroot     => '/path/to/directory',
   directories => [
     { path    => '/path/to/directory',
-      require => { 
+      require => {
         enforce => 'all',
         require => ['group', 'not host host.example.com'],
       },
@@ -3599,7 +3682,7 @@ The [`apache::mod::passenger`][] class is not installing as the the EL6 reposito
 
 ### RHEL/CentOS 7
 
-The [`apache::mod::passenger`][] class is untested as the EL7 repository is missing compatible packages, which also blocks us from testing the [`apache::vhost`][] defined type's [`rack_base_uris`][] parameter.
+The [`apache::mod::passenger`][] and [`apache::mod::proxy_html`][] classes are untested as the EL7 repository is missing compatible packages, which also blocks us from testing the [`apache::vhost`][] defined type's [`rack_base_uris`][] parameter.
 
 ### General
 

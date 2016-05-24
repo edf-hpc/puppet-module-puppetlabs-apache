@@ -201,7 +201,7 @@ describe 'apache::vhost', :type => :define do
               'path'     => '/var/www/files',
               'provider' => 'files',
               'require'  =>
-              { 
+              {
                 'enforce'  => 'all',
                 'requires' => ['all-valid1', 'all-valid2'],
               },
@@ -210,7 +210,7 @@ describe 'apache::vhost', :type => :define do
               'path'     => '/var/www/files',
               'provider' => 'files',
               'require'  =>
-              { 
+              {
                 'enforce'  => 'none',
                 'requires' => ['none-valid1', 'none-valid2'],
               },
@@ -219,7 +219,7 @@ describe 'apache::vhost', :type => :define do
               'path'     => '/var/www/files',
               'provider' => 'files',
               'require'  =>
-              { 
+              {
                 'enforce'  => 'any',
                 'requires' => ['any-valid1', 'any-valid2'],
               },
@@ -236,6 +236,19 @@ describe 'apache::vhost', :type => :define do
             },
             { 'path'              => '/var/www/files/output_filtered',
               'set_output_filter' => 'output_filter',
+            },
+            { 'path'     => '/var/www/files',
+              'provider' => 'location',
+              'limit'    => [
+                { 'methods' => 'GET HEAD',
+                  'require' => ['valid-user']
+                },
+              ],
+            },
+            { 'path'               => '/var/www/dav',
+              'dav'                => 'filesystem',
+              'dav_depth_infinity' => true,
+              'dav_min_timeout'    => '600',
             },
           ],
           'error_log'                   => false,
@@ -274,11 +287,6 @@ describe 'apache::vhost', :type => :define do
                       'retry'   => '0',
                       'timeout' => '5'
               },
-              'options'         => {
-                'Require'  =>'valid-user',
-                'AuthType' =>'Kerberos',
-                'AuthName' =>'"Kerberos Login"'
-              },
               'setenv'   => ['proxy-nokeepalive 1','force-proxy-request-1.0 1'],
             }
           ],
@@ -302,6 +310,7 @@ describe 'apache::vhost', :type => :define do
           'no_proxy_uris'               => '/foo',
           'no_proxy_uris_match'         => '/foomatch',
           'proxy_preserve_host'         => true,
+          'proxy_add_headers'           => true,
           'proxy_error_override'        => true,
           'redirect_source'             => '/bar',
           'redirect_dest'               => '/',
@@ -386,7 +395,10 @@ describe 'apache::vhost', :type => :define do
           'krb_authoritative'           => 'off',
           'krb_auth_realms'             => ['EXAMPLE.ORG','EXAMPLE.NET'],
           'krb_5keytab'                 => '/tmp/keytab5',
-          'krb_local_user_mapping'      => 'off'
+          'krb_local_user_mapping'      => 'off',
+          'keepalive'                   => 'on',
+          'keepalive_timeout'           => '100',
+          'max_keepalive_requests'      => '1000',
         }
       end
       let :facts do
@@ -496,6 +508,16 @@ describe 'apache::vhost', :type => :define do
         :content => /^\s+DirectoryIndex\sdisabled$/ ) }
       it { is_expected.to contain_concat__fragment('rspec.example.com-directories').with(
         :content => /^\s+SetOutputFilter\soutput_filter$/ ) }
+      it { is_expected.to contain_concat__fragment('rspec.example.com-directories').with(
+        :content => /^\s+<Limit GET HEAD>$/ ) }
+      it { is_expected.to contain_concat__fragment('rspec.example.com-directories').with(
+        :content => /\s+<Limit GET HEAD>\s*Require valid-user\s*<\/Limit>/m ) }
+      it { is_expected.to contain_concat__fragment('rspec.example.com-directories').with(
+        :content => /^\s+Dav\sfilesystem$/ ) }
+      it { is_expected.to contain_concat__fragment('rspec.example.com-directories').with(
+        :content => /^\s+DavDepthInfinity\sOn$/ ) }
+      it { is_expected.to contain_concat__fragment('rspec.example.com-directories').with(
+        :content => /^\s+DavMinTimeout\s600$/ ) }
       it { is_expected.to contain_concat__fragment('rspec.example.com-additional_includes') }
       it { is_expected.to contain_concat__fragment('rspec.example.com-logging') }
       it { is_expected.to contain_concat__fragment('rspec.example.com-serversignature') }
@@ -514,16 +536,13 @@ describe 'apache::vhost', :type => :define do
       it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
               /noquery interpolate/) }
       it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
+              /ProxyPreserveHost On/) }
+      it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
+              /ProxyAddHeaders On/) }
+      it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
               /ProxyPassReverseCookiePath\s+\/a\s+http:\/\//) }
       it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
               /ProxyPassReverseCookieDomain\s+foo\s+http:\/\/foo/) }
-      it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
-              /Require valid-user/) }
-      it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
-              /AuthType Kerberos/) }
-      it { is_expected.to contain_concat__fragment('rspec.example.com-proxy').with_content(
-              /AuthName "Kerberos Login"/) }
-
       it { is_expected.to contain_concat__fragment('rspec.example.com-rack') }
       it { is_expected.to contain_concat__fragment('rspec.example.com-redirect') }
       it { is_expected.to contain_concat__fragment('rspec.example.com-rewrite') }
@@ -583,6 +602,12 @@ describe 'apache::vhost', :type => :define do
         :content => /^\s+KrbSaveCredentials\soff$/)}
       it { is_expected.to contain_concat__fragment('rspec.example.com-auth_kerb').with(
         :content => /^\s+KrbVerifyKDC\son$/)}
+      it { is_expected.to contain_concat__fragment('rspec.example.com-keepalive_options').with(
+        :content => /^\s+KeepAlive\son$/)}
+      it { is_expected.to contain_concat__fragment('rspec.example.com-keepalive_options').with(
+        :content => /^\s+KeepAliveTimeout\s100$/)}
+      it { is_expected.to contain_concat__fragment('rspec.example.com-keepalive_options').with(
+        :content => /^\s+MaxKeepAliveRequests\s1000$/)}
     end
     context 'vhost with multiple ip addresses' do
       let :params do
