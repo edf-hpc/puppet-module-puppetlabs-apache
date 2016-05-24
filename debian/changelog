@@ -1,3 +1,9 @@
+puppet-module-puppetlabs-apache (1.10.0-1) UNRELEASED; urgency=medium
+
+  * Imported upstream relase 1.10.0
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 24 May 2016 09:36:46 +0200
+
 puppet-module-puppetlabs-apache (1.9.0-1) unstable; urgency=medium
 
   * Team upload.
